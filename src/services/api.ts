@@ -11,6 +11,7 @@ import type {
   ImportResult,
   MetaOptions,
   PaginatedMeta,
+  PublicFloorStats,
   Profile,
   Task,
   TaskFilters,
@@ -59,6 +60,12 @@ export const authApi = {
 export const metaApi = {
   options: async (): Promise<MetaOptions> =>
     (await http.get<ApiResponse<MetaOptions>>('/meta/options')).data.data,
+}
+
+/** Unauthenticated aggregates for the landing page. Counts only, never names. */
+export const publicApi = {
+  floor: async (): Promise<PublicFloorStats> =>
+    (await http.get<ApiResponse<PublicFloorStats>>('/public/floor')).data.data,
 }
 
 // ---------------------------------------------------------------- Attendance

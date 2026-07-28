@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { publicApi } from '@/services/api'
 import { cn } from '@/utils/format'
 import { Icon, type IconName } from '@/components/ui/Icon'
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber'
@@ -523,16 +525,33 @@ function Features() {
 // --------------------------------------------------------------- For admins
 
 function ForAdmins() {
-  // The mock dashboard's figures were plain text, so they sat still while
-  // every other number on the page counted. They now animate on the same
-  // terms as the rest: whenever the panel is actually being looked at.
   const { ref, inView } = useInView<HTMLDivElement>({ threshold: 0.35 })
 
-  const rollCall = [
-    { label: 'Present', value: 88, tone: 'bg-brand' },
-    { label: 'Late', value: 9, tone: 'bg-warn' },
-    { label: 'Not yet in', value: 3, tone: 'bg-line' },
-  ]
+  /*
+   * The real floor, from a public endpoint that returns counts and nothing
+   * else -- no names, no identifiers.
+   *
+   * `retry: false` and a silent failure state are deliberate. This is a
+   * marketing page, and the backend it asks may be asleep on a free instance
+   * or unreachable entirely; a visitor should get a page that quietly omits
+   * one panel, never a spinner that never resolves or an error card.
+   */
+  const floor = useQuery({
+    queryKey: ['public', 'floor'],
+    queryFn: publicApi.floor,
+    retry: false,
+    staleTime: 60_000,
+  })
+
+  const stats = floor.data
+
+  const rollCall = stats
+    ? [
+        { label: 'Present', value: stats.roll_call.present.percent, tone: 'bg-brand' },
+        { label: 'Late', value: stats.roll_call.late.percent, tone: 'bg-warn' },
+        { label: 'Not yet in', value: stats.roll_call.not_yet_in.percent, tone: 'bg-line' },
+      ]
+    : []
 
   const points = [
     'A live floor view: who is on shift, how far through their committed hours, and tonight’s roll call.',
@@ -564,9 +583,8 @@ function ForAdmins() {
           </ul>
         </ScrollReveal>
 
-        {/* A sketch of the dashboard rather than a screenshot: a real capture
-            would carry real names and would go stale the first time the UI
-            moved. */}
+        {/* The real floor, not a mock-up. Aggregates only -- the endpoint
+            behind it returns counts and never a name. */}
         <ScrollReveal direction="right" delay={120}>
           <div
             ref={ref}
@@ -575,23 +593,58 @@ function ForAdmins() {
             <div className="flex items-center justify-between">
               <span className="inline-flex items-center gap-2 rounded-full border border-line bg-raised/70 px-2.5 py-1 text-xs font-bold tracking-[0.12em] text-body uppercase backdrop-blur">
                 <span className="relative flex h-1.5 w-1.5" aria-hidden="true">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-ok opacity-75" />
-                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-ok" />
+                  {/* The pulse claims the figures are live, so it is only shown
+                      once they actually are. */}
+                  {stats && (
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-ok opacity-75" />
+                  )}
+                  <span
+                    className={cn(
+                      'relative inline-flex h-1.5 w-1.5 rounded-full',
+                      stats ? 'bg-ok' : 'bg-faint',
+                    )}
+                  />
                 </span>
                 Live
               </span>
               <span className="text-xs text-muted">Tonight’s shift</span>
             </div>
 
-            <div className="mt-5 flex items-end gap-3">
-              <span className="numeric text-[52px] leading-[0.85] font-semibold tracking-tight text-body tabular-nums">
-                <AnimatedNumber value={42} start={inView} format={(n) => `${Math.round(n)}`} />
-              </span>
-              <span className="numeric pb-1 text-lg leading-none font-medium text-faint tabular-nums">
-                / 48
-              </span>
-            </div>
-            <p className="mt-2 text-sm text-muted">timed in and still working</p>
+            {floor.isLoading ? (
+              <div className="mt-5 space-y-3">
+                <div className="skeleton h-12 w-32 rounded-lg" />
+                <div className="skeleton h-4 w-48 rounded" />
+              </div>
+            ) : !stats ? (
+              /*
+               * Unreachable backend. A marketing page must not show a visitor
+               * an error card or a spinner that never resolves, so the panel
+               * says plainly that the number is missing and gets out of the
+               * way.
+               */
+              <div className="mt-5">
+                <p className="numeric text-[52px] leading-[0.85] font-semibold tracking-tight text-faint tabular-nums">
+                  —
+                </p>
+                <p className="mt-2 text-sm text-muted">Live figures are unavailable right now.</p>
+              </div>
+            ) : (
+              <>
+                <div className="mt-5 flex items-end gap-3">
+                  <span className="numeric text-[52px] leading-[0.85] font-semibold tracking-tight text-body tabular-nums">
+                    <AnimatedNumber
+                      value={stats.currently_timed_in}
+                      start={inView}
+                      format={(n) => `${Math.round(n)}`}
+                    />
+                  </span>
+                  <span className="numeric pb-1 text-lg leading-none font-medium text-faint tabular-nums">
+                    / {stats.active_taskers}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm text-muted">timed in and still working</p>
+              </>
+            )}
 
             <div className="mt-6 space-y-3">
               {rollCall.map((row, index) => (
@@ -674,13 +727,15 @@ function Developer() {
 
           <div className="mt-8 flex flex-wrap gap-2.5">
             {[
-              { icon: 'github' as IconName, label: 'GitHub', href: '#developer' },
-              { icon: 'linkedin' as IconName, label: 'LinkedIn', href: '#developer' },
-              { icon: 'mail' as IconName, label: 'Email', href: '#developer' },
+              { icon: 'github' as IconName, label: 'GitHub', href: 'https://github.com/jims062702', target: '_blank' },
+              { icon: 'facebook' as IconName, label: 'Facebook', href: 'https://www.facebook.com/james.gasangii.3', target: '_blank' },
+              { icon: 'instagram' as IconName, label: 'Instagram', href: 'https://instagram.com/itsme.jamesss_', target: '_blank' },
             ].map((link) => (
               <a
                 key={link.label}
                 href={link.href}
+                target={link.target}
+  rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 rounded-xl border border-line bg-raised px-4 py-2.5 text-[15px] font-semibold text-body transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-card"
               >
                 <Icon name={link.icon} size={17} className="text-muted" />

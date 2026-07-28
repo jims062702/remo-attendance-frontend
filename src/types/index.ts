@@ -261,6 +261,24 @@ export interface DashboardSummary {
   in_progress_tasks_today: number
 }
 
+/**
+ * Aggregate floor figures for the public landing page.
+ *
+ * Counts only. The endpoint behind this is unauthenticated, so it deliberately
+ * carries nothing that could identify a person — if a name ever appears in this
+ * interface, something has gone wrong upstream.
+ */
+export interface PublicFloorStats {
+  business_date: string
+  active_taskers: number
+  currently_timed_in: number
+  roll_call: {
+    present: { count: number; percent: number }
+    late: { count: number; percent: number }
+    not_yet_in: { count: number; percent: number }
+  }
+}
+
 export interface AdminDashboard {
   summary: DashboardSummary
   currently_on_shift: Attendance[]

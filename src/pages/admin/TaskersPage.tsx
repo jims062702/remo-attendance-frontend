@@ -61,13 +61,24 @@ export default function AdminTaskersPage() {
 
   const people = roster.data?.data ?? []
   const counts = people.reduce(
-    (acc, person) => ({
-      active: acc.active + (person.status === 'active' ? 1 : 0),
-      pending: acc.pending + (person.has_signed_in ? 0 : 1),
-      admins: acc.admins + (person.role === 'admin' ? 1 : 0),
-      atRisk: acc.atRisk + (person.absence_risk?.at_risk ? 1 : 0),
-    }),
-    { active: 0, pending: 0, admins: 0, atRisk: 0 },
+    (acc, person) => {
+      const isActive = person.status === 'active'
+      const isAdmin = person.role === 'admin'
+
+      return {
+        active: acc.active + (isActive ? 1 : 0),
+        pending: acc.pending + (person.has_signed_in ? 0 : 1),
+        admins: acc.admins + (isAdmin ? 1 : 0),
+        // Split within the ACTIVE population specifically. Deriving the tasker
+        // half as `active - admins` would be wrong the moment an administrator
+        // is deactivated: that admin leaves the active count but stays in the
+        // admin count, and the subtraction quietly under-reports taskers.
+        activeAdmins: acc.activeAdmins + (isActive && isAdmin ? 1 : 0),
+        activeTaskers: acc.activeTaskers + (isActive && !isAdmin ? 1 : 0),
+        atRisk: acc.atRisk + (person.absence_risk?.at_risk ? 1 : 0),
+      }
+    },
+    { active: 0, pending: 0, admins: 0, activeAdmins: 0, activeTaskers: 0, atRisk: 0 },
   )
 
   const totalPeople = taskers.data?.meta.pagination.total
@@ -131,14 +142,30 @@ export default function AdminTaskersPage() {
       />
 
       <StatGrid ready={!roster.isLoading} columns={5}>
-        <StatCard label="On the roster" icon="users" value={totalPeople} format={whole} />
+        {/*
+          These tiles count ACCOUNTS, not taskers — this page lists everyone
+          with access, administrators included.
+
+          Labelled explicitly because the dashboard's "active taskers" counts
+          only `role = tasker`, and the two figures legitimately differ: five
+          active taskers plus two active admins reads as 5 on one screen and 7
+          on the other. Both are right; only the wording was ambiguous.
+        */}
         <StatCard
-          label="Active"
+          label="Accounts"
+          icon="users"
+          value={totalPeople}
+          format={whole}
+          hint="Taskers and administrators"
+        />
+        <StatCard
+          label="Active accounts"
           icon="check"
           tone="ok"
           value={counts.active}
           format={whole}
           progress={people.length > 0 ? counts.active / people.length : 0}
+          hint={`${counts.activeTaskers} tasker${counts.activeTaskers === 1 ? '' : 's'}, ${counts.activeAdmins} admin${counts.activeAdmins === 1 ? '' : 's'}`}
         />
         <StatCard
           label="Never signed in"
