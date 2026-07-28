@@ -1,0 +1,731 @@
+@import 'tailwindcss';
+
+/*
+| Design tokens
+|
+| Colours are declared as CSS custom properties and mapped into Tailwind's
+| theme, so markup uses semantic names (bg-surface, text-muted) rather than
+| raw palette steps. Switching themes then means swapping variable values in
+| one place instead of adding a dark: variant to every element.
+|
+| Dark mode is a real requirement here rather than a nicety: this is an
+| overnight 10 PM - 6 AM shift, and a full-white dashboard at 3 AM is hostile.
+*/
+
+@theme {
+  --shadow-card: var(--shadow-sm);
+  --shadow-raised: var(--shadow-md);
+  --shadow-float: var(--shadow-lg);
+
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-sunken: var(--sunken);
+  --color-line: var(--line);
+  --color-body: var(--body);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-soft: var(--brand-soft);
+  --color-on-brand: var(--on-brand);
+
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-neutral-soft: var(--neutral-soft);
+
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, monospace;
+}
+
+:root {
+  /* Warmer, slightly tinted neutrals -- a pure grey reads as unfinished. */
+  --surface: oklch(97.5% 0.004 265);
+  --raised: oklch(100% 0 0);
+  --sunken: oklch(95.5% 0.006 265);
+  --line: oklch(91% 0.008 265);
+  --body: oklch(21% 0.025 270);
+  --muted: oklch(48% 0.02 268);
+  --faint: oklch(64% 0.016 268);
+
+  /* Deeper, more saturated brand than the default indigo. */
+  --brand: oklch(48% 0.19 272);
+  --brand-strong: oklch(40% 0.20 272);
+  --brand-soft: oklch(94.5% 0.035 272);
+  --on-brand: oklch(100% 0 0);
+
+  --ok: oklch(52% 0.13 155);
+  --ok-soft: oklch(95% 0.04 155);
+  --warn: oklch(58% 0.14 75);
+  --warn-soft: oklch(95% 0.05 85);
+  --bad: oklch(54% 0.19 25);
+  --bad-soft: oklch(95% 0.04 25);
+  --info: oklch(54% 0.13 240);
+  --info-soft: oklch(95% 0.03 240);
+  --neutral-soft: oklch(93.5% 0.007 265);
+
+  /* Elevation. Layering is what stops a card grid reading as a flat wireframe. */
+  --shadow-sm: 0 1px 2px oklch(21% 0.025 270 / 0.05);
+  --shadow-md: 0 1px 3px oklch(21% 0.025 270 / 0.07), 0 4px 12px oklch(21% 0.025 270 / 0.05);
+  --shadow-lg: 0 2px 6px oklch(21% 0.025 270 / 0.08), 0 12px 28px oklch(21% 0.025 270 / 0.08);
+
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  /* Near-black canvas with cards only just lifted off it. A mid-grey "dark
+     mode" is what makes a dashboard look like a default template. */
+  --surface: oklch(9.5% 0.004 270);
+  --raised: oklch(14% 0.006 270);
+  --sunken: oklch(11.5% 0.005 270);
+  --line: oklch(22% 0.008 270);
+  --body: oklch(97% 0.003 270);
+  --muted: oklch(66% 0.012 270);
+  --faint: oklch(50% 0.012 270);
+
+  --brand: oklch(58% 0.20 264);
+  --brand-strong: oklch(64% 0.20 264);
+  --brand-soft: oklch(22% 0.07 264);
+  --on-brand: oklch(100% 0 0);
+
+  --ok: oklch(72% 0.18 152);
+  --ok-soft: oklch(22% 0.06 152);
+  --warn: oklch(78% 0.15 80);
+  --warn-soft: oklch(24% 0.06 80);
+  --bad: oklch(65% 0.20 25);
+  --bad-soft: oklch(23% 0.07 25);
+  --info: oklch(70% 0.14 240);
+  --info-soft: oklch(23% 0.06 240);
+  --neutral-soft: oklch(18% 0.006 270);
+
+  /* Deep and tight -- on a near-black surface a wide soft shadow is invisible,
+     so the lift comes from a crisp close one. */
+  --shadow-sm: 0 1px 2px oklch(0% 0 0 / 0.6);
+  --shadow-md: 0 1px 3px oklch(0% 0 0 / 0.7), 0 6px 16px oklch(0% 0 0 / 0.45);
+  --shadow-lg: 0 4px 12px oklch(0% 0 0 / 0.7), 0 20px 48px oklch(0% 0 0 / 0.6);
+
+  color-scheme: dark;
+}
+
+/*
+| Keyframes live at the top level, deliberately outside @layer.
+|
+| @keyframes inside a cascade layer is legal but fragile: the animation name is
+| resolved against layer order, so a rule in a later layer -- or a build that
+| reorders layers -- can leave an element with a valid `animation` shorthand
+| pointing at a name that resolves to nothing. The symptom is an animation that
+| silently never plays, with no error and nothing wrong in devtools. Hoisting
+| them removes that whole class of failure.
+*/
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes spark-draw {
+  from {
+    stroke-dashoffset: 600;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes skeleton {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+/* A figure landing: slightly overshoots, then settles. Used on badges and
+   pills that appear in response to an action rather than on load. */
+@keyframes pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* A bar filling from its baseline. The transform is on the X axis only, so the
+   browser animates a composited layer rather than re-laying-out a width. */
+@keyframes grow-x {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/*
+| Scroll-reveal entrances.
+|
+| Larger travel than the in-app `rise-in` (18px): these fire as a section
+| arrives at the edge of the viewport rather than inside an already-visible
+| panel, so the movement has to survive being read peripherally.
+*/
+@keyframes reveal-up {
+  from {
+    opacity: 0;
+    transform: translateY(36px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes reveal-down {
+  from {
+    opacity: 0;
+    transform: translateY(-36px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes reveal-left {
+  from {
+    opacity: 0;
+    transform: translateX(-36px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes reveal-right {
+  from {
+    opacity: 0;
+    transform: translateX(36px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/*
+| Registered so the spotlight radius can be interpolated rather than snapping.
+|
+| An unregistered custom property has no type, so the browser cannot compute an
+| intermediate value and the transition is simply ignored -- the hole would jump
+| open at full size. Declared at the top level for the same reason the keyframes
+| above are: @property is a top-level at-rule and does not reliably register
+| from inside a cascade layer.
+*/
+/* A typing caret. Squared on/off rather than a sine fade — a cursor that eases
+   in and out reads as a glow, not as a cursor. */
+@keyframes caret-blink {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  55%,
+  100% {
+    opacity: 0.15;
+  }
+}
+
+@property --spot-r {
+  syntax: '<length>';
+  /* Inherited on purpose: the radius is set once on the portrait container and
+     read by both the masked photograph and the rim that traces its edge. With
+     `inherits: false` the children would each fall back to the initial value
+     and the ring would never follow the hole. */
+  inherits: true;
+  initial-value: 0px;
+}
+
+@layer base {
+  html {
+    /*
+     * The base every rem in the application resolves against.
+     *
+     * Raised from the 16px browser default because this is a dense operational
+     * tool read on a night shift, often on a large monitor at arm's length --
+     * and because Tailwind's spacing scale is rem-based too, one number here
+     * scales type, padding, control heights and gaps together. That coherence
+     * is the point: bumping font sizes alone would leave the same text in the
+     * same boxes, which is what makes an interface feel cramped rather than
+     * small.
+     *
+     * Raised again to 20px. This is the one number to change if the interface
+     * ever wants to be larger or tighter -- every section, control and gutter
+     * follows it, so there is no per-component sweep to do and nothing can
+     * fall out of proportion with the rest.
+     *
+     * Held back on small screens, where the viewport is the constraint rather
+     * than the reading distance: at 20px a phone fits noticeably less per
+     * screen, and a dense operational tool that has to be scrolled twice as
+     * far is harder to use, not easier to read.
+     */
+    font-size: 20px;
+  }
+
+  @media (max-width: 40rem) {
+    html {
+      font-size: 17px;
+    }
+    -webkit-text-size-adjust: 100%;
+
+    /*
+     * Anchor links on the landing page glide rather than jump.
+     *
+     * Follows the same precedence as every other animation here: on by
+     * default, off when the OS asks for reduced motion, and overridable
+     * either way by the in-app control. `scroll-behavior` is not a
+     * transition or a keyframe, so the reduced-motion block below does not
+     * reach it and it has to be stated separately.
+     */
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html:not([data-motion='full']) {
+      scroll-behavior: auto;
+    }
+  }
+
+  html[data-motion='reduced'] {
+    scroll-behavior: auto;
+  }
+
+  body {
+    background-color: var(--surface);
+    color: var(--body);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+  }
+
+  /*
+   * Respect a user's reduced-motion preference.
+   *
+   * The OS setting is the default and wins unless the user has explicitly
+   * asked for animation in-app, which is what `data-motion="full"` records.
+   * Without that escape hatch the in-app control could restore the
+   * JavaScript-driven animations -- counting numbers, chart draw-ins -- while
+   * every CSS keyframe stayed suppressed, which is a worse and much more
+   * confusing state than either extreme.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    :root:not([data-motion='full']) *,
+    :root:not([data-motion='full']) *::before,
+    :root:not([data-motion='full']) *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* An explicit in-app opt-out, honoured whatever the OS says. */
+  :root[data-motion='reduced'] *,
+  :root[data-motion='reduced'] *::before,
+  :root[data-motion='reduced'] *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@layer components {
+  /*
+   * A flat fill is what makes an admin panel read as a wireframe. Two very
+   * soft radial washes give the canvas some depth without becoming decoration
+   * that competes with the data on top of it.
+   */
+  .app-canvas {
+    background-image:
+      radial-gradient(60rem 40rem at 12% -10%, var(--brand-soft) 0%, transparent 55%),
+      radial-gradient(50rem 35rem at 105% 5%, var(--info-soft) 0%, transparent 50%);
+    background-attachment: fixed;
+  }
+
+  /* On a near-black canvas the washes read as smudges; the depth there comes
+     from the surface steps instead. */
+  [data-theme='dark'] .app-canvas {
+    background-image: none;
+  }
+
+  /*
+   * The hero band at the top of a dashboard.
+   *
+   * Given a surface of its own so the live shift state is not just another
+   * card: a brand wash across one corner, and a faint dot grid that reads as
+   * instrumentation rather than decoration. Both are built from existing
+   * tokens, so the panel re-themes with everything else instead of needing a
+   * dark: override.
+   */
+  .hero-panel {
+    background-color: var(--raised);
+    background-image:
+      linear-gradient(135deg, var(--brand-soft) 0%, transparent 58%),
+      radial-gradient(circle at 1px 1px, var(--line) 1px, transparent 0);
+    background-size:
+      auto,
+      22px 22px;
+  }
+
+  /* A hairline of light along the top edge. It is what stops a large panel
+     reading as a flat rectangle pasted onto the page. */
+  .hero-panel::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.5);
+    pointer-events: none;
+  }
+
+  [data-theme='dark'] .hero-panel::after {
+    box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.06);
+  }
+
+  /*
+   * Panels settle into place on load, each a beat after the one above it.
+   *
+   * The stagger is what makes a dashboard feel like it is reporting rather
+   * than simply existing: the eye is walked down the page in reading order
+   * instead of being handed nine finished panels at once. `backwards` holds
+   * the start state through the delay, otherwise a delayed element flashes at
+   * full opacity before its animation begins.
+   *
+   * Every animation here is neutralised by the reduced-motion rule in the base
+   * layer, which is why none of them re-declare it.
+   */
+  .rise-in {
+    animation: rise-in 620ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+    /* Promotes the element to its own compositor layer for the duration, so
+       the browser transforms a cached texture instead of repainting the
+       subtree every frame. Cleared afterwards -- a permanent will-change costs
+       memory for a layer nothing is animating. */
+    will-change: transform, opacity;
+  }
+
+  /*
+   * A page-level fade with no transform.
+   *
+   * The whole page used to rise as well, which meant panels were sliding
+   * inside a container that was itself sliding: the transforms compound, the
+   * motion reads as drifting rather than settling, and the browser repaints a
+   * full-viewport subtree that sits over two backdrop-blurred bars. Fading the
+   * page and moving only the panels inside it keeps one moving layer at each
+   * level and costs the compositor almost nothing.
+   */
+  .fade-in {
+    animation: fade-in 380ms ease-out backwards;
+    will-change: opacity;
+  }
+
+  /* Sidebar items arrive from the edge they are docked to. */
+  .slide-in-left {
+    animation: slide-in-left 460ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+    will-change: transform, opacity;
+  }
+
+  /* Once the entrance is over these are static elements again. */
+  .rise-in,
+  .fade-in,
+  .slide-in-left {
+    animation-fill-mode: backwards;
+  }
+
+  /*
+   * A sparkline draws itself left to right.
+   *
+   * The dash length is a fixed over-estimate rather than the measured path
+   * length: these are ~110px wide with a bounded number of points, so any
+   * value comfortably above the true length produces the same visible sweep,
+   * and it avoids a getTotalLength() measurement per line on a page that can
+   * hold dozens of them.
+   */
+  .spark-draw {
+    stroke-dasharray: 600;
+    animation: spark-draw 900ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+
+  /*
+   * A modal that simply appears reads as a glitch; a short rise settles it in
+   * place. Both the panel and its backdrop are animated so they arrive
+   * together. Suppressed by the reduced-motion rule in the base layer.
+   */
+  .modal-panel {
+    animation: modal-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .modal-panel::backdrop {
+    animation: backdrop-in 180ms ease-out;
+  }
+
+  .pop-in {
+    animation: pop-in 320ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+
+  /*
+   * Scroll-triggered entrances. `backwards` holds the start state through the
+   * delay, so a staggered element does not flash at full opacity before its
+   * animation begins.
+   */
+  .reveal-up,
+  .reveal-down,
+  .reveal-left,
+  .reveal-right {
+    animation-duration: 700ms;
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+    animation-fill-mode: backwards;
+    will-change: transform, opacity;
+  }
+
+  .reveal-up {
+    animation-name: reveal-up;
+  }
+  .reveal-down {
+    animation-name: reveal-down;
+  }
+  .reveal-left {
+    animation-name: reveal-left;
+  }
+  .reveal-right {
+    animation-name: reveal-right;
+  }
+
+  /*
+   * The cursor spotlight on the developer portrait.
+   *
+   * Two stacked images: the illustration below, the photograph above, masked
+   * to a soft circle that follows the pointer. The mask is driven entirely by
+   * two custom properties set from a pointermove handler, so the browser
+   * repaints one composited layer instead of React re-rendering on every
+   * mouse event.
+   *
+   * The radius is what animates on enter and leave -- collapsing it to zero
+   * closes the hole rather than fading the whole photograph, which is what
+   * makes it read as a torch being switched off rather than a crossfade.
+   */
+  /*
+   * The stage owns the pointer variables so every layer inside can read them:
+   * the masked photograph and the rim that traces its edge. It also owns the
+   * radius transition, so opening and closing the hole is one interpolation
+   * that both layers follow in step.
+   */
+  /*
+   * The dark-theme logo, swapped in CSS rather than in React.
+   *
+   * `content` on an <img> replaces the rendered image without touching the src
+   * attribute, so the right variant is chosen by the same stylesheet that sets
+   * the theme — before first paint, with no flash of the wrong artwork and no
+   * theme state threaded through every component that shows a logo.
+   */
+  [data-theme='dark'] .app-logo {
+    content: url('/logo-mark-dark.png');
+  }
+
+  .caret-blink {
+    animation: caret-blink 1.05s steps(1, end) infinite;
+  }
+
+  .spotlight-stage {
+    --spot-x: 50%;
+    --spot-y: 50%;
+    --spot-r: 0px;
+    transition: --spot-r 320ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .spotlight-photo {
+    -webkit-mask-image: radial-gradient(
+      circle var(--spot-r) at var(--spot-x) var(--spot-y),
+      #000 0%,
+      #000 62%,
+      transparent 100%
+    );
+    mask-image: radial-gradient(
+      circle var(--spot-r) at var(--spot-x) var(--spot-y),
+      #000 0%,
+      #000 62%,
+      transparent 100%
+    );
+  }
+
+  /* A thin bloom exactly where the mask fades out. Drawn as a ring stop in a
+     gradient rather than a bordered element so it can sit at an arbitrary
+     radius without any geometry being computed in JavaScript. */
+  .spotlight-ring {
+    background: radial-gradient(
+      circle var(--spot-r) at var(--spot-x) var(--spot-y),
+      transparent 0%,
+      transparent 58%,
+      oklch(100% 0 0 / 0.28) 74%,
+      transparent 100%
+    );
+  }
+
+  /*
+   * A statistic tile.
+   *
+   * Three things separate this from a bordered box. A tone wash in the top
+   * corner, so a row of tiles is not five identical grey rectangles and the
+   * one carrying a warning is findable without reading it. A hairline of light
+   * along the top edge, which is what stops a card reading as flat. And a lift
+   * on hover -- these are frequently links or filters, and a surface that
+   * responds tells you so before you click.
+   *
+   * The wash colour comes from the tone attribute rather than a prop-built
+   * class string, so the whole set re-themes with the tokens and Tailwind
+   * never has to see a dynamically constructed class name.
+   */
+  .stat-tile {
+    position: relative;
+    overflow: hidden;
+    transition:
+      transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 220ms ease-out,
+      border-color 220ms ease-out;
+  }
+
+  .stat-tile::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(
+      20rem 12rem at 100% 0%,
+      var(--tone-wash, transparent) 0%,
+      transparent 68%
+    );
+    pointer-events: none;
+  }
+
+  .stat-tile::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.55);
+    pointer-events: none;
+  }
+
+  [data-theme='dark'] .stat-tile::after {
+    box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.05);
+  }
+
+  .stat-tile:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+
+  /* Motion is a preference; the lift is not the only affordance, so removing
+     it costs nothing. The wash and the hairline stay. */
+  @media (prefers-reduced-motion: reduce) {
+    .stat-tile:hover {
+      transform: none;
+    }
+  }
+
+  .stat-tile[data-tone='ok'] {
+    --tone-wash: var(--ok-soft);
+  }
+  .stat-tile[data-tone='warn'] {
+    --tone-wash: var(--warn-soft);
+  }
+  .stat-tile[data-tone='bad'] {
+    --tone-wash: var(--bad-soft);
+  }
+  .stat-tile[data-tone='brand'] {
+    --tone-wash: var(--brand-soft);
+  }
+  .stat-tile[data-tone='default'] {
+    --tone-wash: var(--neutral-soft);
+  }
+}
+
+@layer utilities {
+  /* Tabular figures keep hour and output columns aligned down a table. */
+  .numeric {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .skeleton {
+    background: linear-gradient(90deg, var(--sunken) 25%, var(--line) 37%, var(--sunken) 63%);
+    background-size: 400% 100%;
+    animation: skeleton 1.4s ease infinite;
+  }
+
+  /* A bar that fills from its left edge on arrival. Paired with a width in
+     percent, so the transform animates the reveal and the width carries the
+     actual value. */
+  .grow-x {
+    transform-origin: left center;
+    animation: grow-x 760ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+}

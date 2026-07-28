@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- The glyph alone, not the full lockup: the wordmark is 4.5:1 and would
+         render as a few-pixel smear in a browser tab. -->
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Attendance, tasking and productivity management for overnight shift teams." />
+    <meta name="robots" content="noindex, nofollow" />
+    <!-- Matches the wordmark in the logo, so the tab and the header agree. -->
+    <title>Remotasks GY Shift</title>
+    <script>
+      // Apply the stored theme before first paint. Without this the page
+      // renders light and then flips, which on a 3 AM shift is a flashbang.
+      (function () {
+        try {
+          var stored = localStorage.getItem('remo-theme')
+          var dark = stored ? stored === 'dark' : true
+          document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+        } catch (e) {
+          /* localStorage unavailable; fall back to the CSS default */
+        }
+
+        // Same reasoning for the motion preference: the entrance animations
+        // run on first paint, so the override has to be on the element before
+        // the stylesheet is applied or the first screen is suppressed anyway.
+        try {
+          var motion = localStorage.getItem('remo-motion')
+          document.documentElement.dataset.motion =
+            motion === 'full' || motion === 'reduced' ? motion : 'system'
+        } catch (e) {
+          /* localStorage unavailable; the OS preference still applies */
+        }
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
