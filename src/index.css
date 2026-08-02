@@ -321,29 +321,53 @@
      * follows it, so there is no per-component sweep to do and nothing can
      * fall out of proportion with the rest.
      *
-     * Held back on small screens, where the viewport is the constraint rather
-     * than the reading distance: at 20px a phone fits noticeably less per
-     * screen, and a dense operational tool that has to be scrolled twice as
-     * far is harder to use, not easier to read.
+     * Stepped down twice below that, because the viewport becomes the
+     * constraint rather than the reading distance. Note that `rem` inside a
+     * media query always resolves against the browser's initial 16px, never
+     * against the value declared above -- so 90rem here means 1440px, not
+     * 1800px.
      */
     font-size: 20px;
   }
 
+  /*
+   * Laptops.
+   *
+   * At 20px the sidebar is 350px and the header 90px, which is comfortable on
+   * a 27-inch monitor and cramped on a 13-inch screen -- the nav starts
+   * scrolling and wide tables have to be swiped sideways. Nothing above
+   * 1440px changes; this only closes the gap between "phone" and "large
+   * desktop", which previously had no step of its own.
+   */
+  @media (max-width: 90rem) {
+    html {
+      font-size: 18px;
+    }
+  }
+
+  /* Phones. Declared after the rule above so that when both match, this wins. */
   @media (max-width: 40rem) {
     html {
       font-size: 17px;
     }
-    -webkit-text-size-adjust: 100%;
+  }
 
-    /*
-     * Anchor links on the landing page glide rather than jump.
-     *
-     * Follows the same precedence as every other animation here: on by
-     * default, off when the OS asks for reduced motion, and overridable
-     * either way by the in-app control. `scroll-behavior` is not a
-     * transition or a keyframe, so the reduced-motion block below does not
-     * reach it and it has to be stated separately.
-     */
+  /*
+   * Anchor links on the landing page glide rather than jump.
+   *
+   * Follows the same precedence as every other animation here: on by default,
+   * off when the OS asks for reduced motion, and overridable either way by the
+   * in-app control. `scroll-behavior` is not a transition or a keyframe, so
+   * the reduced-motion block below does not reach it and it has to be stated
+   * separately.
+   *
+   * This sat loose inside the phone media query above -- a declaration with no
+   * selector, which the parser discards -- so smooth scrolling had never
+   * actually applied anywhere, and the two `scroll-behavior: auto` overrides
+   * below were guarding against something that never happened. It also has no
+   * business being width-dependent.
+   */
+  html {
     scroll-behavior: smooth;
   }
 
