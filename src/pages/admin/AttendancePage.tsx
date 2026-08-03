@@ -149,7 +149,7 @@ export default function AdminAttendancePage() {
       </Card>
 
       {totals && (
-        <StatGrid ready={!attendance.isLoading} columns={5}>
+        <StatGrid ready={!attendance.isLoading} columns={6}>
           <StatCard
             label="Records"
             icon="clipboard"
@@ -181,6 +181,19 @@ export default function AdminAttendancePage() {
             format={(n) => Math.round(n).toLocaleString()}
             tone={totals.late > 0 ? 'warn' : 'ok'}
             progress={totals.records > 0 ? totals.late / totals.records : 0}
+          />
+          {/* Absence had no tile at all, so this screen could say how many
+              people were late but not how many never arrived. The share is
+              measured against records rather than taskers: an absence is one
+              filed night, and the denominator has to be the same unit. */}
+          <StatCard
+            label="Absent"
+            icon="lock"
+            value={totals.absent}
+            format={(n) => Math.round(n).toLocaleString()}
+            tone={totals.absent > 0 ? 'bad' : 'ok'}
+            progress={totals.records > 0 ? totals.absent / totals.records : 0}
+            hint={totals.on_leave > 0 ? `${totals.on_leave} on leave` : undefined}
           />
           <StatCard
             label="Missing time out"

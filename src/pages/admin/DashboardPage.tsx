@@ -194,9 +194,29 @@ function ShiftHero({ data, loading }: { data?: AdminDashboard; loading: boolean 
   }
 
   const s = data.summary
-  const present = Math.max(0, s.attendance_today - s.late_today)
-  const notIn = Math.max(0, s.active_taskers - s.attendance_today)
-  const rate = s.active_taskers > 0 ? s.attendance_today / s.active_taskers : 0
+
+  /*
+   * Every figure here comes from a per-status count on the server.
+   *
+   * They used to be derived from `attendance_today`, the number of records
+   * filed — which counts absences, because an absence is a record. One absent
+   * tasker rendered as "Present 1" on a 100% attendance rate. A total cannot
+   * be taken apart into the states that composed it; the states have to be
+   * counted separately, and now they are.
+   */
+  const notIn = Math.max(
+    0,
+    s.active_taskers - s.worked_today - s.absent_today - s.on_leave_today,
+  )
+
+  /*
+   * Approved leave is removed from the denominator rather than counted as a
+   * failure to attend. Someone whose leave was granted is not expected
+   * tonight, and scoring the floor down for it would push admins toward not
+   * recording leave at all.
+   */
+  const expected = Math.max(0, s.active_taskers - s.on_leave_today)
+  const rate = expected > 0 ? s.worked_today / expected : 0
 
   return (
     <section
@@ -237,9 +257,14 @@ function ShiftHero({ data, loading }: { data?: AdminDashboard; loading: boolean 
           </p>
           <StackedMeter
             emptyLabel="No attendance filed yet tonight."
+            /* Zero-valued segments are dropped by StackedMeter, so a floor
+               with nobody incomplete or on leave still reads as three bands. */
             segments={[
-              { label: 'Present', value: present, color: palette.present },
+              { label: 'Present', value: s.present_today, color: palette.present },
               { label: 'Late', value: s.late_today, color: palette.late },
+              { label: 'Incomplete', value: s.incomplete_today, color: palette.incomplete },
+              { label: 'Absent', value: s.absent_today, color: palette.absent },
+              { label: 'On leave', value: s.on_leave_today, color: palette.axis },
               { label: 'Not yet in', value: notIn, color: palette.grid },
             ]}
           />

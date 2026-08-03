@@ -218,6 +218,8 @@ export interface AttendanceTotals {
   total_hours: number
   average_hours: number | null
   late: number
+  absent: number
+  on_leave: number
   missing_time_out: number
   expected_hours: number
   variance: number
@@ -238,9 +240,24 @@ export interface DashboardSummary {
   shift_end: string
   total_taskers: number
   active_taskers: number
+  /**
+   * Records filed for tonight, of every status — absences included, because an
+   * absence is a record. Do NOT use this as an attendance count: that is
+   * `worked_today`. Deriving "present" from this by subtracting lateness is
+   * what made an absent tasker render as present on a 100% rate.
+   */
   attendance_today: number
   currently_timed_in: number
+
+  present_today: number
   late_today: number
+  incomplete_today: number
+  absent_today: number
+  on_leave_today: number
+
+  /** present + late + incomplete — the statuses that mean someone worked. */
+  worked_today: number
+
   total_hours_today: number
 
   /**
@@ -610,6 +627,13 @@ export interface DailyState {
    */
   next_shift_opens_at: string
   steps: DailySteps
+  /**
+   * The night has been settled as non-attendance — absent (usually by
+   * `attendance:mark-absent` at the configured cutoff) or on leave. There is
+   * nothing left to file, every `steps` flag reads false, and the screen shows
+   * the reason instead of the flow.
+   */
+  settled: boolean
   attendance: Attendance | null
   tracker: TrackerEntry | null
   /** Previous entry, used to pre-fill the form. */

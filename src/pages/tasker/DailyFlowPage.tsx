@@ -189,6 +189,19 @@ export default function DailyFlowPage() {
         <Card className="p-6">
           <div className="skeleton h-40 rounded-lg" />
         </Card>
+      ) : state.data!.settled ? (
+        /* The night was settled as non-attendance. There is nothing to file,
+           so the flow is replaced by the reason rather than left standing with
+           every step locked -- a stepper whose every action fails is worse
+           than no stepper at all. */
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
+          <Reveal ready delay={120} className="min-w-0">
+            <SettledNotice state={state.data!} />
+          </Reveal>
+          <Reveal ready delay={200} className="xl:sticky xl:top-24">
+            {state.data?.totals && <ProductionTotals totals={state.data.totals} />}
+          </Reveal>
+        </div>
       ) : (
         <>
           <Reveal ready delay={120}>
@@ -335,6 +348,71 @@ function buildFlowSteps(state: DailyState): FlowStep[] {
  * Windows are business dates, so a shift finishing at 6 AM Monday counts
  * against Sunday night -- the night they think of themselves as having worked.
  */
+/**
+ * Shown instead of the flow when tonight has been settled as non-attendance.
+ *
+ * The tasker cannot act their way out of this state, so the panel offers no
+ * action. Being asked to file a tracker entry for a night you were marked
+ * absent is not a form with nothing in it -- it is a contradiction, and the
+ * previous screen presented it as a to-do list.
+ *
+ * Correcting a wrong absence is deliberately an admin's job. Letting the
+ * affected person clear it themselves would make the record meaningless.
+ */
+function SettledNotice({ state }: { state: DailyState }) {
+  const attendance = state.attendance
+  const onLeave = attendance?.status === 'on_leave'
+  const label = attendance?.status_label ?? 'Absent'
+
+  return (
+    <Card>
+      <CardBody className="space-y-5 p-6 sm:p-7">
+        <div className="flex items-start gap-4">
+          <span
+            className={cn(
+              'flex h-11 w-11 shrink-0 items-center justify-center rounded-full',
+              onLeave ? 'bg-info-soft text-info' : 'bg-bad-soft text-bad',
+            )}
+            aria-hidden="true"
+          >
+            <Icon name={onLeave ? 'calendar' : 'lock'} className="h-5 w-5" />
+          </span>
+
+          <div className="min-w-0 space-y-1.5">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h2 className="text-lg font-semibold text-body">
+                {onLeave ? 'You are on leave tonight' : 'You were marked absent tonight'}
+              </h2>
+              {attendance && <AttendanceBadge status={attendance.status} />}
+            </div>
+            <p className="text-sm text-muted">
+              The shift of {formatDate(state.business_date)} is closed for you, so there is
+              nothing to file — no activation, no PC, no tracker entry and no time out.
+            </p>
+          </div>
+        </div>
+
+        {attendance?.notes && (
+          <p className="rounded-lg border border-line bg-sunken px-4 py-3 text-sm text-muted">
+            {attendance.notes}
+          </p>
+        )}
+
+        <div className="border-t border-line pt-4 text-sm text-muted">
+          <p>
+            {onLeave
+              ? 'Recorded by an administrator.'
+              : `If this is wrong — you did work tonight — ask an administrator to correct the record. It cannot be undone from here, which is what stops a ${label.toLowerCase()} from being cleared by the person it applies to.`}
+          </p>
+          <p className="mt-2">
+            Your next shift opens at {formatNextOpen(state.next_shift_opens_at)}.
+          </p>
+        </div>
+      </CardBody>
+    </Card>
+  )
+}
+
 function ProductionTotals({ totals }: { totals: NonNullable<DailyState['totals']> }) {
   const windows = [
     { key: 'today', label: 'Tonight', data: totals.today },

@@ -240,7 +240,7 @@ interface StatGridProps {
    */
   ready?: boolean
   /** Columns at the widest breakpoint. Below that it steps down to 2, then 1. */
-  columns?: 2 | 3 | 4 | 5
+  columns?: 2 | 3 | 4 | 5 | 6
   /** Milliseconds between one tile arriving and the next. */
   stagger?: number
   className?: string
@@ -251,6 +251,9 @@ const GRID_COLS: Record<NonNullable<StatGridProps['columns']>, string> = {
   3: 'sm:grid-cols-2 lg:grid-cols-3',
   4: 'sm:grid-cols-2 xl:grid-cols-4',
   5: 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5',
+  // Six tiles fold to three-by-two rather than to a six-wide row that would
+  // squeeze each figure below legibility on anything but a very wide screen.
+  6: 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6',
 }
 
 /**
