@@ -86,6 +86,9 @@ export default function AdminTaskerDetailPage() {
   const user = detail.data?.user
   const attendance = detail.data?.summary.attendance
   const productivity = detail.data?.summary.productivity
+  // The nightly tracker. Distinct from `productivity`, which is the optional
+  // Extra Tasks page -- see the comment above the Production section below.
+  const production = detail.data?.summary.production
 
   const rate = (attendance?.attendance_rate ?? 0) / 100
   const ready = !detail.isLoading
@@ -278,10 +281,95 @@ export default function AdminTaskerDetailPage() {
         </Card>
       </Reveal>
 
-      <section aria-label="Productivity summary">
+      {/* What this tasker filed through the nightly flow.
+
+          Drawn FIRST, and given the plain name, because it is where
+          essentially all production is declared. The block below it reads the
+          separate Extra Tasks page, which most taskers never touch -- and
+          because that was the only production on this screen, someone who had
+          worked and filed every night still read as having produced nothing. */}
+      <section aria-label="Production summary">
         <h2 className="mb-3 text-[15px] font-semibold tracking-tight text-body">
-          Productivity summary
+          Production summary
         </h2>
+        <StatGrid ready={ready} columns={4}>
+          <StatCard
+            label="Nights filed"
+            icon="calendar"
+            value={production?.nights_filed}
+            format={whole}
+          />
+          <StatCard
+            label="Total tasks"
+            icon="clipboard"
+            tone="brand"
+            value={production?.total_tasks}
+            format={whole}
+          />
+          <StatCard label="Task IDs" icon="layers" value={production?.task_ids} format={whole} />
+          <StatCard label="SBQ" icon="shield" value={production?.sbq} format={whole} />
+          <StatCard
+            label="Declared hours"
+            icon="clock"
+            value={production?.declared_hours}
+            format={(n) => n.toFixed(2)}
+          />
+          <StatCard
+            label="Tasks per night"
+            icon="chart"
+            value={production?.average_tasks_per_night ?? undefined}
+            format={(n) => n.toFixed(2)}
+          />
+          <StatCard
+            label="Tasks per hour"
+            icon="bolt"
+            value={production?.tasks_per_hour ?? undefined}
+            format={(n) => n.toFixed(2)}
+            hint="Against clocked hours"
+          />
+        </StatGrid>
+      </section>
+
+      <Card>
+        <CardHeader title="Recent submissions" description="Nightly tracker entries, most recent first" />
+        {detail.isLoading ? (
+          <TableSkeleton rows={5} cols={5} />
+        ) : detail.data?.recent_entries.length === 0 ? (
+          <EmptyState title="No tracker entries in this period" />
+        ) : (
+          <TableWrap>
+            <THead>
+              <Th>Shift date</Th>
+              <Th>Projects</Th>
+              <Th>Tasks</Th>
+              <Th>Task IDs</Th>
+              <Th>SBQ</Th>
+            </THead>
+            <TBody>
+              {detail.data?.recent_entries.map((entry) => (
+                <Tr key={entry.id}>
+                  <Td className="whitespace-nowrap">{formatDate(entry.entry_date)}</Td>
+                  <Td className="font-medium">
+                    {entry.items?.map((item) => item.project_code).join(', ') || '—'}
+                  </Td>
+                  <Td numeric>{formatNumber(entry.total_tasks ?? 0)}</Td>
+                  <Td numeric>{formatNumber(entry.task_id_count)}</Td>
+                  <Td numeric>{formatNumber(entry.sbq_count)}</Td>
+                </Tr>
+              ))}
+            </TBody>
+          </TableWrap>
+        )}
+      </Card>
+
+      <section aria-label="Extra tasks summary">
+        <h2 className="mb-3 text-[15px] font-semibold tracking-tight text-body">
+          Extra tasks
+        </h2>
+        <p className="mb-3 text-sm text-muted">
+          The separate, optional submissions page. Empty for most taskers, and never added
+          into the production figures above.
+        </p>
         <StatGrid ready={ready} columns={4}>
           <StatCard
             label="Total tasks"
@@ -390,11 +478,11 @@ export default function AdminTaskerDetailPage() {
       </Card>
 
       <Card>
-        <CardHeader title="Recent submissions" description="Most recent first" />
+        <CardHeader title="Recent extra tasks" description="Most recent first" />
         {detail.isLoading ? (
           <TableSkeleton rows={5} cols={5} />
         ) : detail.data?.recent_tasks.length === 0 ? (
-          <EmptyState title="No submissions in this period" />
+          <EmptyState title="No extra tasks in this period" />
         ) : (
           <TableWrap>
             <THead>

@@ -368,6 +368,12 @@ export interface TaskerDetail {
    */
   absence_risk: AbsenceRisk
   recent_attendance: Attendance[]
+  /**
+   * Nightly tracker entries — what "submissions" means everywhere else in the
+   * admin area, and what almost every tasker actually files.
+   */
+  recent_entries: TrackerEntry[]
+  /** The separate, optional Extra Tasks page. Usually empty. */
   recent_tasks: Task[]
 }
 
