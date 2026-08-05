@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { Icon } from '@/components/ui/Icon'
 import { Card, CardBody, CardHeader, PageHeader, StatCard, StatGrid } from '@/components/ui/Card'
 import { AttendanceBadge } from '@/components/ui/StatusBadge'
-import { Modal } from '@/components/ui/Modal'
+import { ConfirmDialog, Modal } from '@/components/ui/Modal'
 import { DateRange, Field, Input, Select, Textarea } from '@/components/ui/Field'
 import {
   EmptyState,
@@ -44,6 +44,25 @@ export default function AdminAttendancePage() {
   const [sort, setSort] = useState('attendance_date')
   const [direction, setDirection] = useState<'asc' | 'desc'>('desc')
   const [correcting, setCorrecting] = useState<Attendance | null>(null)
+  const [deleting, setDeleting] = useState<Attendance | null>(null)
+
+  /*
+   * Deleting is separate from correcting on purpose.
+   *
+   * A correction changes what a night says; a delete says the night never
+   * happened. The API refuses while a submission is attached, so the error
+   * that matters here is a 409 with a message naming what is in the way --
+   * shown as-is, because it already says what to do about it.
+   */
+  const remove = useMutation({
+    mutationFn: (record: Attendance) => adminApi.deleteAttendance(record.id),
+    onSuccess: (message) => {
+      toast.success(message)
+      setDeleting(null)
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'attendance'] })
+    },
+    onError: (error) => toast.error((error as ApiError).message),
+  })
   const [exporting, setExporting] = useState(false)
 
   const filters = { from, to, status, search, sort, direction }
@@ -291,14 +310,23 @@ export default function AdminAttendancePage() {
                       <AttendanceBadge status={record.status} label={record.status_label} />
                     </Td>
                     <Td>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        icon={<Icon name="clipboard" size={14} />}
-                        onClick={() => setCorrecting(record)}
-                      >
-                        Edit
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          icon={<Icon name="clipboard" size={14} />}
+                          onClick={() => setCorrecting(record)}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          icon={<Icon name="trash" size={14} />}
+                          aria-label={`Delete the shift of ${formatDate(record.attendance_date)}`}
+                          onClick={() => setDeleting(record)}
+                        />
+                      </div>
                     </Td>
                   </Tr>
                 ))}
@@ -308,6 +336,20 @@ export default function AdminAttendancePage() {
           </>
         )}
       </Card>
+
+      <ConfirmDialog
+        open={deleting !== null}
+        onClose={() => setDeleting(null)}
+        title={`Delete the shift of ${deleting ? formatDate(deleting.attendance_date) : ''}?`}
+        description={
+          `This removes ${deleting?.user?.name ?? 'the tasker'}'s record for that night entirely — ` +
+          'the clock, the PC and the hours. It cannot be undone, and it frees the night so they ' +
+          'can file it again.'
+        }
+        confirmLabel="Delete"
+        loading={remove.isPending}
+        onConfirm={() => deleting && remove.mutate(deleting)}
+      />
 
       <CorrectionModal
         record={correcting}

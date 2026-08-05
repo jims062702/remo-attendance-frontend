@@ -174,6 +174,19 @@ export const adminApi = {
     return { attendance: data.data, message: data.message ?? 'Attendance corrected.' }
   },
 
+  /**
+   * Remove a shift record.
+   *
+   * Rejected with 409 `attendance.has_production` while a submission or an
+   * extra task is filed against it — those carry a nullable foreign key, so
+   * deleting the shift would detach the night's work rather than fail.
+   */
+  deleteAttendance: async (id: number): Promise<string> => {
+    await ensureCsrfCookie()
+    const { data } = await http.delete<ApiResponse<unknown>>(`/admin/attendance/${id}`)
+    return data.message ?? 'Attendance record deleted.'
+  },
+
   markAttendance: async (payload: Record<string, unknown>): Promise<Attendance> => {
     await ensureCsrfCookie()
     const { data } = await http.post<ApiResponse<Attendance>>('/admin/attendance', payload)
@@ -240,6 +253,19 @@ export const adminApi = {
       params: toQuery(filters),
     })
     return { data: data.data, meta: data.meta as unknown as PaginatedMeta }
+  },
+
+  /**
+   * Remove a submission and its per-project blocks.
+   *
+   * A real delete, not a hide: `tracker_entries` is unique on
+   * (user_id, entry_date), so a soft-deleted row would go on occupying the
+   * night and the tasker could never file it again.
+   */
+  deleteTrackerEntry: async (id: number): Promise<string> => {
+    await ensureCsrfCookie()
+    const { data } = await http.delete<ApiResponse<unknown>>(`/admin/tracker-entries/${id}`)
+    return data.message ?? 'Submission deleted.'
   },
 
   /** Reference lists, reused by the admin submission filters. */

@@ -1,8 +1,11 @@
 import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { adminApi } from '@/services/api'
 import { ApiError } from '@/services/http'
 import { Button } from '@/components/ui/Button'
+import { Icon } from '@/components/ui/Icon'
+import { ConfirmDialog } from '@/components/ui/Modal'
 import { Card, CardBody, CardHeader, PageHeader, StatCard, StatGrid } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/StatusBadge'
 import { Sparkline } from '@/components/ui/Sparkline'
@@ -44,6 +47,24 @@ export default function AdminSubmissionsPage() {
   const [projectId, setProjectId] = useState('')
   const [page, setPage] = useState(1)
   const [viewing, setViewing] = useState<TrackerEntry | null>(null)
+  const [deleting, setDeleting] = useState<TrackerEntry | null>(null)
+
+  const queryClient = useQueryClient()
+
+  /*
+   * Deleting a submission takes its per-project blocks with it — the database
+   * cascades them, because a block describes one project inside one submission
+   * and means nothing on its own.
+   */
+  const remove = useMutation({
+    mutationFn: (entry: TrackerEntry) => adminApi.deleteTrackerEntry(entry.id),
+    onSuccess: (message) => {
+      toast.success(message)
+      setDeleting(null)
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'tracker-entries'] })
+    },
+    onError: (error) => toast.error((error as ApiError).message),
+  })
 
   const filters = { from, to, search, project_id: projectId }
 
@@ -325,9 +346,18 @@ export default function AdminSubmissionsPage() {
                       </div>
                     </Td>
                     <Td>
-                      <Button size="sm" variant="ghost" onClick={() => setViewing(entry)}>
-                        View
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button size="sm" variant="ghost" onClick={() => setViewing(entry)}>
+                          View
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          icon={<Icon name="trash" size={14} />}
+                          aria-label={`Delete the submission of ${formatDate(entry.entry_date)}`}
+                          onClick={() => setDeleting(entry)}
+                        />
+                      </div>
                     </Td>
                   </Tr>
                 ))}
@@ -337,6 +367,20 @@ export default function AdminSubmissionsPage() {
           </>
         )}
       </Card>
+
+      <ConfirmDialog
+        open={deleting !== null}
+        onClose={() => setDeleting(null)}
+        title={`Delete the submission of ${deleting ? formatDate(deleting.entry_date) : ''}?`}
+        description={
+          `This removes ${deleting?.user?.name ?? 'the tasker'}'s production declaration for that ` +
+          'night, along with every project block in it. It cannot be undone, and it frees the ' +
+          'night so they can file it again.'
+        }
+        confirmLabel="Delete"
+        loading={remove.isPending}
+        onConfirm={() => deleting && remove.mutate(deleting)}
+      />
 
       <TrackerEntryModal entry={viewing} onClose={() => setViewing(null)} showTasker />
     </div>
