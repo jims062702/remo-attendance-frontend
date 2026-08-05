@@ -160,9 +160,24 @@ http.interceptors.response.use(
  */
 export function toQuery(filters: object): Record<string, string> {
   return Object.entries(filters).reduce<Record<string, string>>((acc, [key, value]) => {
-    if (value !== undefined && value !== null && value !== '' && value !== false) {
-      acc[key] = String(value)
+    // A false filter is not a filter. Dropping it keeps "off" out of the query
+    // string entirely, which is also what the API's `nullable` rules expect.
+    if (value === undefined || value === null || value === '' || value === false) {
+      return acc
     }
+
+    /*
+     * Booleans go as "1", never as "true".
+     *
+     * Laravel's `boolean` validation rule compares strictly against
+     * [true, false, 0, 1, "0", "1"] -- and "true" is not in that list. So
+     * String(true) produced a query string the API rejected outright: ticking
+     * "Show deactivated" on the tasker roster failed with "The include deleted
+     * field must be true or false", which reads like a bug in the checkbox and
+     * was really a bug in this line.
+     */
+    acc[key] = value === true ? '1' : String(value)
+
     return acc
   }, {})
 }
