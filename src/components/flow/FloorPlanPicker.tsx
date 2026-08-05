@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { cn } from '@/utils/format'
+import { cn, formatTime } from '@/utils/format'
 import { Icon } from '@/components/ui/Icon'
 import type { WorkstationOption } from '@/types'
 
@@ -222,13 +222,19 @@ function Seat({
     <label
       className={cn('relative block', blocked ? 'cursor-not-allowed' : 'cursor-pointer')}
       // Still on the tile itself, for the long names the two drawn lines clip.
-      title={
+      // The earlier occupant is appended rather than replacing anything: on a
+      // shared desk both halves matter.
+      title={[
         pc.is_support
           ? `${pc.name} — Support`
           : pc.is_claimed
             ? `${pc.name} — taken by ${pc.claimed_by}`
-            : `${pc.name} — free`
-      }
+            : `${pc.name} — free`,
+        pc.previous_by &&
+          `Earlier: ${pc.previous_by}, timed out ${formatTime(pc.previous_time_out)}`,
+      ]
+        .filter(Boolean)
+        .join('\n')}
     >
       <input
         type="radio"
@@ -242,9 +248,11 @@ function Seat({
 
       <span
         className={cn(
-          // Taller than it was: the occupant's full name needs two lines, and
-          // the operations floor plan this mirrors draws them the same way.
-          'flex h-[4.5rem] flex-col items-center justify-center rounded-lg border px-1 transition-all duration-150',
+          // Tall enough for the number, the occupant's full name over two
+          // lines, and the earlier occupant underneath when a desk has been
+          // handed on. The operations floor plan this mirrors is drawn the
+          // same way.
+          'flex h-[5.25rem] flex-col items-center justify-center rounded-lg border px-1 transition-all duration-150',
           'peer-focus-visible:ring-2 peer-focus-visible:ring-brand peer-focus-visible:ring-offset-1',
           state === 'selected' && 'border-brand bg-brand text-on-brand shadow-raised',
           state === 'free' &&
@@ -276,6 +284,18 @@ function Seat({
             <span className="text-ok">Free</span>
           )}
         </span>
+
+        {/* The tasker who left this desk earlier tonight.
+
+            Drawn under the current occupant rather than instead of them: on a
+            desk two people used, "who is here now" and "who was here before"
+            are different questions and the floor answers both. Dimmed and
+            clamped to one line so it reads as history, not as the claim. */}
+        {pc.previous_by && (
+          <span className="mt-0.5 line-clamp-1 max-w-full text-center text-[9px] leading-tight text-faint">
+            was {pc.previous_by.split(' ')[0]} · {formatTime(pc.previous_time_out)}
+          </span>
+        )}
       </span>
     </label>
   )

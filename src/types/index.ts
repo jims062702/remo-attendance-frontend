@@ -504,6 +504,15 @@ export interface WorkstationOption {
   is_claimed: boolean
   claimed_by: string | null
   /**
+   * The tasker who had this desk earlier tonight and has since timed out, with
+   * the moment they left. Null until somebody closes a shift on it.
+   *
+   * A machine can carry two people across one night — one leaves, another sits
+   * down — so the current occupant is not the whole story of the desk.
+   */
+  previous_by: string | null
+  previous_time_out: string | null
+  /**
    * Permanently outside the tasker pool. Included in the payload rather than
    * omitted so the floor map matches the physical room; never selectable.
    */
