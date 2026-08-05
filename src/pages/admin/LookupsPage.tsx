@@ -73,11 +73,41 @@ export default function AdminLookupsPage() {
 
   const invalidate = () => void queryClient.invalidateQueries({ queryKey: ['lookups'] })
 
-  const retire = useMutation({
-    mutationFn: (id: number) => lookupApi.retire(type, id),
+  /*
+   * Deleting is offered first and refused when the row is still referenced.
+   *
+   * The refusal is not an error to swallow — it is the answer to a question
+   * the admin could not have known: this PC carries 148 shifts. So the 409
+   * turns the dialog into the deactivate one rather than firing a toast and
+   * leaving them to guess what to do instead.
+   */
+  const [blockedReason, setBlockedReason] = useState<string | null>(null)
+
+  const remove = useMutation({
+    mutationFn: (id: number) => lookupApi.remove(type, id),
     onSuccess: (message) => {
       toast.success(message)
       setRetiring(null)
+      setBlockedReason(null)
+      invalidate()
+    },
+    onError: (error: ApiError) => {
+      if (error.code === 'lookup.in_use') {
+        setBlockedReason(error.message)
+
+        return
+      }
+
+      toast.error(error.message)
+    },
+  })
+
+  const deactivate = useMutation({
+    mutationFn: (id: number) => lookupApi.deactivate(type, id),
+    onSuccess: (message) => {
+      toast.success(message)
+      setRetiring(null)
+      setBlockedReason(null)
       invalidate()
     },
     onError: (error: ApiError) => toast.error(error.message),
@@ -196,7 +226,7 @@ export default function AdminLookupsPage() {
                         </Badge>
                       ) : (
                         <Badge tone="neutral" dot>
-                          Retired
+                          Inactive
                         </Badge>
                       )}
                     </Td>
@@ -213,11 +243,19 @@ export default function AdminLookupsPage() {
                         >
                           Edit
                         </Button>
-                        {row.is_active && (
-                          <Button size="sm" variant="ghost" onClick={() => setRetiring(row)}>
-                            Retire
-                          </Button>
-                        )}
+                        {/* Offered on inactive rows too: deactivating is how
+                            you keep a referenced row, but an unreferenced one
+                            should still be removable afterwards. */}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setBlockedReason(null)
+                            setRetiring(row)
+                          }}
+                        >
+                          Delete
+                        </Button>
                       </div>
                     </Td>
                   </Tr>
@@ -241,14 +279,36 @@ export default function AdminLookupsPage() {
         }}
       />
 
+      {/* One dialog, two states. Before the attempt it asks to delete; if the
+          server refuses because the row is referenced, the same dialog becomes
+          the deactivate offer, carrying the server's reason rather than a
+          rewritten guess at it. */}
       <ConfirmDialog
         open={retiring !== null}
-        title={`Retire ${retiring?.code ?? retiring?.name}?`}
-        description="Taskers will no longer be able to select it. Existing records that reference it are kept intact and still display correctly."
-        confirmLabel="Retire"
-        loading={retire.isPending}
-        onClose={() => setRetiring(null)}
-        onConfirm={() => retiring && retire.mutate(retiring.id)}
+        title={
+          blockedReason
+            ? `Deactivate ${retiring?.code ?? retiring?.name} instead?`
+            : `Delete ${retiring?.code ?? retiring?.name}?`
+        }
+        description={
+          blockedReason ??
+          'This removes it completely. Only possible while nothing references it — if anything does, you will be offered deactivation instead.'
+        }
+        confirmLabel={blockedReason ? 'Deactivate' : 'Delete'}
+        loading={remove.isPending || deactivate.isPending}
+        onClose={() => {
+          setRetiring(null)
+          setBlockedReason(null)
+        }}
+        onConfirm={() => {
+          if (!retiring) return
+
+          if (blockedReason) {
+            deactivate.mutate(retiring.id)
+          } else {
+            remove.mutate(retiring.id)
+          }
+        }}
       />
     </div>
   )

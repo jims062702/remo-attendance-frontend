@@ -202,9 +202,13 @@ function Seat({
   // claimable. Someone else's claim blocks the seat; your own does not.
   const blocked = pc.is_support || (pc.is_claimed && !isOwn && !selected)
 
-  // "PC-07" is long in a small tile and the prefix is the same on every one of
-  // them, so only the number is drawn.
-  const short = pc.name.replace(/^PC[-\s]?0*/i, '')
+  // Only the number is drawn: the prefix is identical on every tile and the
+  // location suffix is the room you are standing in.
+  //
+  // Captured rather than stripped. Names carry a suffix now ("PC-06 3F C"),
+  // and a rule that deleted the prefix left "6 3F C" sitting in a tile sized
+  // for two characters.
+  const short = pc.name.match(/^PC[-\s]?0*(\d+)/i)?.[1] ?? pc.name
 
   const state = pc.is_support
     ? 'support'
@@ -217,8 +221,7 @@ function Seat({
   return (
     <label
       className={cn('relative block', blocked ? 'cursor-not-allowed' : 'cursor-pointer')}
-      // The occupant's name is the fastest way to confirm you have the right
-      // desk, but there is no room for it in the tile.
+      // Still on the tile itself, for the long names the two drawn lines clip.
       title={
         pc.is_support
           ? `${pc.name} — Support`
@@ -239,7 +242,9 @@ function Seat({
 
       <span
         className={cn(
-          'flex h-[3.25rem] flex-col items-center justify-center rounded-lg border px-1 transition-all duration-150',
+          // Taller than it was: the occupant's full name needs two lines, and
+          // the operations floor plan this mirrors draws them the same way.
+          'flex h-[4.5rem] flex-col items-center justify-center rounded-lg border px-1 transition-all duration-150',
           'peer-focus-visible:ring-2 peer-focus-visible:ring-brand peer-focus-visible:ring-offset-1',
           state === 'selected' && 'border-brand bg-brand text-on-brand shadow-raised',
           state === 'free' &&
@@ -250,7 +255,7 @@ function Seat({
       >
         <span className="numeric text-[15px] leading-none font-bold tabular-nums">{short}</span>
 
-        <span className="mt-1 max-w-full truncate text-[10px] leading-tight">
+        <span className="mt-1 line-clamp-2 max-w-full text-center text-[10px] leading-[1.15] break-words hyphens-auto">
           {state === 'selected' ? (
             <span className="inline-flex items-center gap-0.5 font-semibold">
               <Icon name="check" size={10} strokeWidth={3} />
@@ -259,9 +264,14 @@ function Seat({
           ) : state === 'support' ? (
             'Support'
           ) : state === 'taken' ? (
-            // First name only — a full name never fits and the number is the
-            // real identifier anyway.
-            (pc.claimed_by ?? 'Taken').split(' ')[0]
+            // The full name, wrapped over two lines.
+            //
+            // This was the first word only, on the reasoning that a full name
+            // never fits. It does not fit on one line -- but "Maria" is not an
+            // identification on a floor with three of them, and confirming you
+            // are at the right desk is the entire job of this label. Anything
+            // past two lines is clipped and still reachable in the tooltip.
+            (pc.claimed_by ?? 'Taken')
           ) : (
             <span className="text-ok">Free</span>
           )}

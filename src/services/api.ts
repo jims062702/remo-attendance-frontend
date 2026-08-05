@@ -422,10 +422,27 @@ export const lookupApi = {
     return { row: data.data, message: data.message ?? 'Updated.' }
   },
 
-  /** Retires rather than deletes; historical entries keep resolving. */
-  retire: async (type: LookupType, id: number): Promise<string> => {
+  /**
+   * Removes the row outright.
+   *
+   * Rejects with an ApiError carrying `lookup.in_use` (409) when something
+   * still points at it — a PC with shifts on it, a project with tracker
+   * entries. That is not a failure to handle silently: it is the server
+   * saying the row is part of the record, and the caller should offer
+   * `deactivate` instead.
+   */
+  remove: async (type: LookupType, id: number): Promise<string> => {
     await ensureCsrfCookie()
     const { data } = await http.delete<ApiResponse<LookupRow>>(`/admin/lookups/${type}/${id}`)
-    return data.message ?? 'Retired.'
+    return data.message ?? 'Deleted.'
+  },
+
+  /** Keeps the row and its history; takes it out of the pickers. */
+  deactivate: async (type: LookupType, id: number): Promise<string> => {
+    await ensureCsrfCookie()
+    const { data } = await http.post<ApiResponse<LookupRow>>(
+      `/admin/lookups/${type}/${id}/deactivate`,
+    )
+    return data.message ?? 'Deactivated.'
   },
 }
