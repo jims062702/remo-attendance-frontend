@@ -231,6 +231,19 @@ export const adminApi = {
     return { user: data.data, message: data.message ?? 'Tasker reactivated.' }
   },
 
+  /**
+   * Remove a deactivated account for good, freeing its email address.
+   *
+   * Rejected with 409 `tasker.has_records` when the person owns any shift,
+   * submission or extra task — those are restrictOnDelete at the database and
+   * are meant to outlive the account.
+   */
+  deleteTaskerPermanently: async (id: number): Promise<string> => {
+    await ensureCsrfCookie()
+    const { data } = await http.delete<ApiResponse<unknown>>(`/admin/taskers/${id}/permanent`)
+    return data.message ?? 'Account deleted.'
+  },
+
   taskerDetail: async (id: number, filters: AttendanceFilters = {}): Promise<TaskerDetail> =>
     (
       await http.get<ApiResponse<TaskerDetail>>(`/admin/taskers/${id}/summary`, {

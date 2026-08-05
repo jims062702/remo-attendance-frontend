@@ -7,6 +7,7 @@ import { ApiError } from '@/services/http'
 import { Button } from '@/components/ui/Button'
 import { Card, CardBody, CardHeader, PageHeader, StatCard, StatGrid } from '@/components/ui/Card'
 import { Badge, UserStatusBadge } from '@/components/ui/StatusBadge'
+import { Icon } from '@/components/ui/Icon'
 import { AbsenceRiskBadge } from '@/components/ui/AbsenceWarning'
 import { ConfirmDialog, Modal } from '@/components/ui/Modal'
 import { Field, Input, Select } from '@/components/ui/Field'
@@ -36,6 +37,7 @@ export default function AdminTaskersPage() {
   const [editing, setEditing] = useState<User | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [deactivating, setDeactivating] = useState<User | null>(null)
+  const [purging, setPurging] = useState<User | null>(null)
 
   const filters = { search, status, include_deleted: includeDeleted }
 
@@ -117,6 +119,27 @@ export default function AdminTaskersPage() {
     mutationFn: (id: number) => adminApi.reactivateTasker(id),
     onSuccess: ({ message }) => {
       toast.success(message)
+      invalidate()
+    },
+    onError: (error: ApiError) => toast.error(error.message),
+  })
+
+  /*
+   * Permanent removal, offered only on a deactivated row.
+   *
+   * Deactivating keeps the account, and the account keeps the email address --
+   * `users.email` is unique in the database, so the address stays spent until
+   * the row itself goes. That is the case this exists for: an account added by
+   * mistake, whose address someone needs back.
+   *
+   * Refused by the API when the person owns any record at all, with a message
+   * naming them. Shown as-is; it already says what to do instead.
+   */
+  const purge = useMutation({
+    mutationFn: (id: number) => adminApi.deleteTaskerPermanently(id),
+    onSuccess: (message) => {
+      toast.success(message)
+      setPurging(null)
       invalidate()
     },
     onError: (error: ApiError) => toast.error(error.message),
@@ -335,14 +358,26 @@ export default function AdminTaskersPage() {
                           View
                         </Link>
                         {user.deleted_at ? (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            loading={reactivate.isPending}
-                            onClick={() => reactivate.mutate(user.id)}
-                          >
-                            Reactivate
-                          </Button>
+                          <>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              loading={reactivate.isPending}
+                              onClick={() => reactivate.mutate(user.id)}
+                            >
+                              Reactivate
+                            </Button>
+                            {/* Only on a deactivated row, and only useful when
+                                the person never worked — the API refuses while
+                                they own anything. */}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              icon={<Icon name="trash" size={14} />}
+                              aria-label={`Delete the account ${user.email}`}
+                              onClick={() => setPurging(user)}
+                            />
+                          </>
                         ) : (
                           <>
                             <Button
@@ -391,6 +426,20 @@ export default function AdminTaskersPage() {
         loading={deactivate.isPending}
         onClose={() => setDeactivating(null)}
         onConfirm={() => deactivating && deactivate.mutate(deactivating.id)}
+      />
+
+      <ConfirmDialog
+        open={purging !== null}
+        title={`Delete ${purging?.name} permanently?`}
+        description={
+          `This removes the account entirely and frees ${purging?.email} to be added again. ` +
+          'It cannot be undone. If they have ever filed a shift or a submission, the delete ' +
+          'will be refused — those records are meant to outlive the account.'
+        }
+        confirmLabel="Delete permanently"
+        loading={purge.isPending}
+        onClose={() => setPurging(null)}
+        onConfirm={() => purging && purge.mutate(purging.id)}
       />
     </div>
   )
